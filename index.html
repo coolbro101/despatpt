@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>DespATPT</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" type="text/css" href="style.css" />
+	<script src="js/vue.js"></script>
+	<script type="text/javascript" src="js/break_eternity.js"></script>
+	<script type="text/javascript" src="js/temp.js"></script>
+	<script type="text/javascript" src="js/saves.js"></script>
+	<script type="text/javascript" src="js/upgrades.js"></script>
+	<script type="text/javascript" src="js/softcap.js"></script>
+	<script type="text/javascript" src="js/prestiges/f.js"></script>
+	<script type="text/javascript" src="js/prestiges/r.js"></script>
+	<script type="text/javascript" src="js/game.js"></script>
+	<script type="text/javascript" src="js/v.js"></script>
+	<script type="text/javascript" src="js/canvas.js"></script>
+</head>
+<body onload="load()">
+	<div id="app">
+		<div class="vl"></div>
+		<div v-if="player.tab=='changelog'" class="col right">
+			<button class="back" onclick="showTab('tree')">←</button><br><br>
+			<h3>v1</h3>
+			<ul>
+				<li>Added Knowledge</li>
+				<li>Added Skills</li>
+			</ul>
+		</div>
+		<div v-if="player.tab=='credits'" class="col right">
+			<button class="back" onclick="showTab('tree')">←</button><br><br><br><br><br>
+			This game uses <a href="https://github.com/Patashu/break_eternity.js/tree/master" target="_blank">break_eternity.js</a> by Patashu.<br>
+			Made by Jacorb…? Well, kinda. The code powering this beast was made by him, but everything after the first 6 prestige upgrades was made by me, Yhvr. Enjoy!<br>
+      Beyond Factory content, everything was made by me, Despacit.<br>
+			Idea by papyrus (on discord)<br>
+			Note: If anyone wishes to make a mod of this game, I already did >:D
+		</div>
+		<div v-if="player.tab=='info'" class="col right">
+			<button class="back" onclick="showTab('tree')">←</button><br><br><br><br><br>
+			Time Played: {{ formatTime(player.timePlayed) }}<br><br><br>
+			<div id="cl" onclick="showTab('credits')">Credits</div><br>
+			<div id="cl" onclick="showTab('changelog')">Changelog</div><br><br><br>
+			<h3>Hotkeys</h3><br><br>
+			P: Prestige reset<br>
+			<span>K: Knowledge reset</span><br>
+		</div>
+		<div v-if="player.tab=='options'" class="col right">
+			<button class="back" onclick="showTab('tree')">←</button><br><br><br><br><br>
+			<table>
+				<tr>
+					<td><button class="opt" onclick="save()">Save</button></td>
+					<td><button class="opt" onclick="hardReset()">HARD RESET</button></td>
+				</tr>
+				<tr>
+					<td><button class="opt" onclick="exportSave()">Export to clipboard</button></td>
+					<td><button class="opt" onclick="importSave()">Import</button></td>
+				</tr>
+				<tr>
+					<td><button class="opt" onclick="toggleOpt('autosave')">Autosave: {{ player.autosave?"ON":"OFF" }}</button></td>
+					<td><button class="opt" onclick="adjustMSDisp()">Show Milestones: {{ player.msDisplay.toUpperCase() }}</button></td>
+					<td><button class="opt" onclick="toggleOpt('offlineProd')">Offline Prod: {{ player.offlineProd?"ON":"OFF" }}</button></td>
+				</tr>
+			</table>
+		</div>
+		<div id="treeTab" onscroll="resizeCanvas()" class="col left">
+			<img id="optionWheel" v-if="player.tab!='options'" src="https://cdn.glitch.com/84bab835-8760-4011-b168-68cf04b7ba86%2Foptions_wheel.png?v=1599608498050" onclick="showTab('options')"></img>
+			<div id="info" v-if="player.tab!='info'" onclick="showTab('info')"><br>i</div>
+			<span v-if="offTime.remain>0">
+				<br>Offline Time: {{formatTime(offTime.remain)}} ({{format(offTime.speed)}}x speed)<br>
+			</span>
+			<br>You have <h2>{{format(player.points)}}</h2> Points
+			<br><br><br><br><br>
+			<table>
+				<tr>
+					<td id="p"><button onclick="showTab('p')" :tooltip="(player.points.gte(tmp.layerReqs.p)||player.p.unl) ? (formatWhole(player.p.points)+' prestige points') : ('Reach '+format(tmp.layerReqs.p)+' points to unlock')" :class="{ treeNode: true, p: true, locked: (player.points.lt(tmp.layerReqs.p)&&!player.p.unl), can: (player.points.gte(tmp.layerReqs.p)||player.p.unl) }">P</button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td><button class="treeNode hidden"></button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td v-if="player.k.unl" class="left"><br><br><img class="remove" src="https://cdn.glitch.com/84bab835-8760-4011-b168-68cf04b7ba86%2Fremove.png?v=1599608501465" onclick="resetRow(1)"></img></td>
+					<td id="k" v-if="layerUnl('k')"><button onclick="showTab('k')" :tooltip="((player.points.gte(tmp.layerReqs.k)||player.k.unl)&&layerUnl('k')) ? (formatWhole(player.k.points)+' knowledge') : ('Reach '+format(tmp.layerReqs.k)+' points to unlock')" :class="{ treeNode: true, k: true, locked: (player.points.lt(tmp.layerReqs.k)&&!player.k.unl), can: (player.points.gte(tmp.layerReqs.k)||player.k.unl) }">K</button></td>
+					<td id="s" v-if="layerUnl('s')"><button onclick="showTab('s')" :tooltip="((player.points.gte(tmp.layerReqs.s)||player.s.unl)&&layerUnl('s')) ? (formatWhole(player.s.points)+' skills') : ('Reach '+format(tmp.layerReqs.s)+' points to unlock')" :class="{ treeNode: true, s: true, locked: (player.points.lt(tmp.layerReqs.s)&&!player.s.unl), can: (player.points.gte(tmp.layerReqs.s)||player.s.unl) }">S</button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td><button class="treeNode hidden"></button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td v-if="player.f.unl" class="left"><br><br><img class="remove" src="https://cdn.glitch.com/84bab835-8760-4011-b168-68cf04b7ba86%2Fremove.png?v=1599608501465"
+                                                            onclick="resetRow(2)"></img></td>
+					<td id="b" v-if="layerUnl('b')"><button onclick="showTab('b')" :tooltip="((player.k.points.gte(tmp.layerReqs.b)||player.b.unl)&&layerUnl('b')) ? (formatWhole(player.b.points)+' books') : ('Reach '+format(tmp.layerReqs.b)+' knowledge to unlock')" :class="{ treeNode: true, b: true, locked: (player.k.points.lt(tmp.layerReqs.b)&&!player.b.unl), can: (player.k.points.gte(tmp.layerReqs.b)||player.b.unl) }">B</button></td>
+					<td id="f" v-if="layerUnl('f')"><button onclick="showTab('f')" :tooltip="((player.points.gte(tmp.layerReqs.f)||player.f.unl)&&layerUnl('f')) ? (formatWhole(player.f.points)+' factories') : ('Reach '+format(tmp.layerReqs.f)+' points to unlock')" :class="{ treeNode: true, f: true, locked: (player.points.lt(tmp.layerReqs.f)&&!player.f.unl), can: (player.points.gte(tmp.layerReqs.f)||player.f.unl) }">F</button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td><button class="treeNode hidden"></button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td v-if="player.r.unl" class="left"><br><br><img class="remove" src="https://cdn.glitch.com/84bab835-8760-4011-b168-68cf04b7ba86%2Fremove.png?v=1599608501465"
+                                                            onclick="resetRow(3)"></img></td>
+					<td id="r" v-if="layerUnl('r')"><button onclick="showTab('r')" :tooltip="((player.points.gte(tmp.layerReqs.r)||player.r.unl)&&layerUnl('r')) ? (formatWhole(player.r.points)+' rockets') : ('Reach '+format(tmp.layerReqs.r)+' points to unlock')" :class="{ treeNode: true, r: true, locked: (player.points.lt(tmp.layerReqs.r)&&!player.r.unl), can: (player.points.gte(tmp.layerReqs.r)||player.r.unl) }">R</button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td><button class="treeNode hidden"></button></td>
+				</tr>
+			</table><table>
+				<tr>
+					<td v-if="player.c.unl" class="left"><br><br><img class="remove" src="https://cdn.glitch.com/84bab835-8760-4011-b168-68cf04b7ba86%2Fremove.png?v=1599608501465"
+                                                            onclick="resetRow(3)"></img></td>
+					<td id="c" v-if="layerUnl('c')"><button onclick="showTab('c')" :tooltip="((player.r.fuel.gte(tmp.layerReqs.c)||player.c.unl)&&layerUnl('c')) ? (formatWhole(player.c.points)+' chaos gems') : ('Reach '+format(tmp.layerReqs.c)+' rocket fuel to unlock')" :class="{ treeNode: true, c: true, locked: (player.r.fuel.lt(tmp.layerReqs.c)&&!player.c.unl), can: (player.r.fuel.gte(tmp.layerReqs.c)||player.c.unl) }">C</button></td>
+					<td id="w" v-if="layerUnl('w')"><button onclick="showTab('w')" :tooltip="((player.f.points.gte(tmp.layerReqs.w)||player.w.unl)&&layerUnl('w')) ? (formatWhole(player.w.points)+' intelligence') : ('Reach '+format(tmp.layerReqs.w)+' factories to unlock')" :class="{ treeNode: true, w: true, locked: (player.f.points.lt(tmp.layerReqs.w)&&!player.w.unl), can: (player.f.points.gte(tmp.layerReqs.w)||player.w.unl) }">W</button></td>
+					<td id="o" v-if="layerUnl('o')"><button onclick="showTab('o')" :tooltip="((player.r.fuel.gte(tmp.layerReqs.o)||player.o.unl)&&layerUnl('o')) ? (formatWhole(player.o.points)+' order power') : ('Reach '+format(tmp.layerReqs.o)+' rocket fuel to unlock')" :class="{ treeNode: true, o: true, locked: (player.r.fuel.lt(tmp.layerReqs.o)&&!player.o.unl), can: (player.r.fuel.gte(tmp.layerReqs.o)||player.o.unl) }">O</button></td>
+				</tr>
+			</table>
+			<canvas id="treeCanvas" class="canvas"></canvas>
+		</div>
+		<div v-for="layer in LAYERS">
+			<div v-if="player.tab === layer" class="col right">
+				<button class="back" onclick="showTab('tree')">←</button><br><br><br>
+				You have <h2 :class="{ [layer+'_txt']: true }">{{formatWhole(player[layer].points)}}</h2> {{LAYER_RES[layer]}}<span v-if="Object.keys(LAYER_EFFS).includes(layer)">, {{getLayerEffDesc(layer)}}</span>
+				<br><br>
+				<div v-if="layer === 'k'">
+					<table>
+						<tr><td v-if="milestoneShown(player.k.best.gte(5))" v-bind:class="{ milestone: player.k.best.lt(5), milestoneDone: player.k.best.gte(5) }">5 Knowledge<br>Keep Prestige Upgrades on knowledge reset</td></tr>
+					</table>
+				</div>
+				<div v-if="layer === 's'">
+					<table>
+						<tr><td v-if="milestoneShown(player.s.best.gte(5))" v-bind:class="{ milestone: player.s.best.lt(5), milestoneDone: player.s.best.gte(5) }">5 Skills<br>Gain 100% of Prestige Point gain per second</td></tr>
+						<tr><td v-if="milestoneShown(player.s.best.gte(10))" v-bind:class="{ milestone: player.s.best.lt(10), milestoneDone: player.s.best.gte(10) }">10 Skills<br>Keep Prestige Upgrades on skill reset</td></tr>
+					</table>
+				</div>
+				<div v-if="layer === 'f'">
+					<table>
+						<tr><td v-if="milestoneShown(player.f.best.gte(1))" v-bind:class="{ milestone: player.f.best.lt(1), milestoneDone: player.f.best.gte(1) }">1 Factory<br>Knowledge resets reset nothing and you can get buy max</td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(2))" v-bind:class="{ milestone: player.f.best.lt(2), milestoneDone: player.f.best.gte(2) }">2 Factories<br>Gain 100% of Skill gain per second</td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(3))" v-bind:class="{ milestone: player.f.best.lt(3), milestoneDone: player.f.best.gte(3) }">3 Factories<br>Keep all Row 2 milestones on factory reset</td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(4))" v-bind:class="{ milestone: player.f.best.lt(4), milestoneDone: player.f.best.gte(4) }">4 Factories<br>Keep knowledge and skill upgrades on factory reset</td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(5))" v-bind:class="{ milestone: player.f.best.lt(5), milestoneDone: player.f.best.gte(5) }">5 Factories<br>Keep prestige upgrades on factory reset</td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(8), true)" v-bind:class="{ milestone: player.f.best.lt(8), milestoneDone: player.f.best.gte(8) }">8 Factories<br>Automatically perform knowledge resets&nbsp;&nbsp;&nbsp;<button v-if="player.f.best.gte(8)" class="smallUpg can k" onclick="toggleAuto('k')">{{player.k.auto?"ON":"OFF"}}</button></td></tr>
+						<tr><td v-if="milestoneShown(player.f.best.gte(12))" v-bind:class="{ milestone: player.f.best.lt(12), milestoneDone: player.f.best.gte(12) }">12 Factories<br>You can buy max factories</td></tr>
+					</table>
+					<p>You have {{ format(player.f.things) }} things, multiplying point gain by {{ format(getThingMult()) }}.</p><br>
+					<table>
+						<tr v-for="(factory, index) in player.f.factories">
+							<td>Factory {{ index + 1 }} |&nbsp;</td>
+							<td>Amount: {{ format(factory) }}</td>
+							<td v-if="factory.eq(0)">
+								<button @click="buyFactory(index)">Buy Factory {{ index + 1}}<br>Cost: {{ getFactoryCost(index).floor() }} factor{{ FACTORY_COSTS[index].eq(1) ? "y" : "ies" }}</button>
+							</td></tr>
+					</table>
+				</div>
+				<div v-if="layer === 'b'">
+					<table>
+						<tr><td v-if="milestoneShown(player.b.best.gte(1))" v-bind:class="{ milestone: player.b.best.lt(1), milestoneDone: player.b.best.gte(1) }">1 Book<br>Keep Prestige Upgrades on book reset</td></tr>
+						<tr><td v-if="milestoneShown(player.b.best.gte(2))" v-bind:class="{ milestone: player.b.best.lt(2), milestoneDone: player.b.best.gte(2) }">2 Books<br>Keep all Row 2 upgrades on book reset</td></tr>
+						<tr><td v-if="milestoneShown(player.b.best.gte(4))" v-bind:class="{ milestone: player.b.best.lt(4), milestoneDone: player.b.best.gte(4) }">4 Books<br>Keep knowledge milestones on book reset</td></tr>
+					</table>
+				</div>
+				<div v-if="layer === 'r'">
+					<table>
+						<tr><td v-if="milestoneShown(player.r.best.gte(1))" v-bind:class="{ milestone: player.r.best.lt(1), milestoneDone: player.r.best.gte(1) }">1 Rocket<br>Keep Prestige upgrades on rocket reset</td></tr>
+						<tr><td v-if="milestoneShown(player.r.best.gte(2))" v-bind:class="{ milestone: player.r.best.lt(2), milestoneDone: player.r.best.gte(2) }">2 Rockets<br>Keep knowledge upgrades and milestones on rocket reset</td></tr>
+						<tr><td v-if="milestoneShown(player.r.best.gte(3))" v-bind:class="{ milestone: player.r.best.lt(3), milestoneDone: player.r.best.gte(3) }">3 Rockets<br>Keep skill upgrades and milestones on rocket reset</td></tr>
+						<tr><td v-if="milestoneShown(player.r.best.gte(4))" v-bind:class="{ milestone: player.r.best.lt(4), milestoneDone: player.r.best.gte(4) }">4 Rockets<br>Keep factory upgrades, factories, and factory milestones on rocket reset</td></tr>
+						<tr><td v-if="milestoneShown(player.r.best.gte(5))" v-bind:class="{ milestone: player.r.best.lt(5), milestoneDone: player.r.best.gte(5) }">5 Rockets<br>Keep books and book milestones on rocket reset</td></tr>
+						<tr><td v-if="milestoneShown(player.r.best.gte(9))" v-bind:class="{ milestone: player.r.best.lt(9), milestoneDone: player.r.best.gte(9) }">9 Rockets<br>Unlock new factory upgrades</td></tr>
+					</table>
+					<p>You have {{ format(player.r.fuel) }} rocket fuel, boosting rocket power by {{ format(rocketFuelPower()) }}x.</p><br>
+				</div>
+				<div v-if="layer === 'c'">
+					<table>
+						<tr><td v-if="milestoneShown(player.c.best.gte(1))" v-bind:class="{ milestone: player.c.best.lt(1), milestoneDone: player.c.best.gte(1) }">1 Chaos Gem<br>Gain 100% of prestige points each second, and you start with all rocket milestones.</td></tr>
+						<tr><td v-if="milestoneShown(player.c.best.gte(2))" v-bind:class="{ milestone: player.c.best.lt(2), milestoneDone: player.c.best.gte(2) }">2 Chaos Gems<br>Gain 100% of skills each second, and keep skill and knowledge upgrades and milestones on every previous reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.c.best.gte(3))" v-bind:class="{ milestone: player.c.best.lt(3), milestoneDone: player.c.best.gte(3) }">3 Chaos Gems<br>Keep factories, factory upgrades and factory milestones on chaos reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.c.best.gte(4))" v-bind:class="{ milestone: player.c.best.lt(4), milestoneDone: player.c.best.gte(4) }">4 Chaos Gems<br>Keep rockets, rocket upgrades and rocket milestones on reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.c.best.gte(6))" v-bind:class="{ milestone: player.c.best.lt(6), milestoneDone: player.c.best.gte(6) }">6 Chaos Gems<br>You can bulk buy books.</td></tr>
+          </table>
+					<p>You have {{ format(player.c.power) }} chaos power, multiplying point, prestige point, skill, thing, and rocket fuel production by {{ format(getChaosPower()) }}.</p><br>
+				</div>
+				<div v-if="layer === 'o'">
+					<table>
+						<tr><td v-if="milestoneShown(player.o.best.gte(1))" v-bind:class="{ milestone: player.o.best.lt(1), milestoneDone: player.o.best.gte(1) }">1 Order Power<br>Gain 100% of prestige points each second, and you start with all rocket milestones.</td></tr>
+						<tr><td v-if="milestoneShown(player.o.best.gte(2))" v-bind:class="{ milestone: player.o.best.lt(2), milestoneDone: player.o.best.gte(2) }">2 Order Power<br>Gain 100% of skills each second, and keep skill and knowledge upgrades and milestones on every previous reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.o.best.gte(3))" v-bind:class="{ milestone: player.o.best.lt(3), milestoneDone: player.o.best.gte(3) }">3 Order Power<br>Keep books and book milestones on order reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.o.best.gte(4))" v-bind:class="{ milestone: player.o.best.lt(4), milestoneDone: player.o.best.gte(4) }">4 Order Power<br>Keep rockets, rocket upgrades and rocket milestones on reset.</td></tr>
+						<tr><td v-if="milestoneShown(player.o.best.gte(6))" v-bind:class="{ milestone: player.o.best.lt(6), milestoneDone: player.o.best.gte(6) }">6 Order Power<br>You can bulk buy rockets.</td></tr>
+          </table>
+				</div>
+				<div v-if="layer === 'w'" class="upgRow">
+					<table>
+						<div v-for="id in 5">
+							<button v-bind:class="{ upg: true, w: true }">Acuity Tier {{id}}<br>Level: {{format(player.w.acuity[id-1])}}<br>Gain: +{{format(getAcuityStuff(id, "gain"))}}/s<br>Effect: {{getAcuityStuff(id, "power")}}</button>
+						</div>
+          </table>
+				</div>
+				<br><br><br>
+				<button v-if="LAYER_TYPE[layer]=='normal'" :class="{ [layer]: true, reset: true, locked: tmp.layerAmt[layer].lt(tmp.layerReqs[layer]), can: tmp.layerAmt[layer].gte(tmp.layerReqs[layer]) }" v-on:click="doReset(layer)">+{{formatWhole(tmp.resetGain[layer])}} {{LAYER_RES[layer]}}<br>Next at {{ (LAYER_RES_CEIL.includes(layer) ? formatWhole(tmp.nextAt[layer]) : format(tmp.nextAt[layer])) }} {{ LAYER_AMT_NAMES[layer] }}</button>
+				<button v-if="LAYER_TYPE[layer]=='static'" :class="{ [layer]: true, reset: true, locked: tmp.layerAmt[layer].lt(tmp.nextAt[layer]), can: tmp.layerAmt[layer].gte(tmp.nextAt[layer]) }" v-on:click="doReset(layer)">+{{formatWhole(tmp.resetGain[layer])}} {{LAYER_RES[layer]}}<br>Req: {{(LAYER_RES_CEIL.includes(layer) ? formatWhole(tmp.nextAt[layer]) : format(tmp.nextAt[layer]))}} {{ LAYER_AMT_NAMES[layer] }}</button>
+				<br><br><br>
+				<div class="upgTable" v-if="LAYER_UPGS[layer]">
+					<div v-for="row in LAYER_UPGS[layer].rows" class="upgRow">
+						<div
+							v-for="col in LAYER_UPGS[layer].cols"
+						><button
+							v-if="LAYER_UPGS[layer][row*10+col].unl()"
+							@click="buyUpg(layer, row*10+col)"
+							:class="{ [layer]: true, upg: true, bought: player[layer].upgrades.includes(row*10+col), locked: (player[layer].points.lt(LAYER_UPGS[layer][row*10+col].cost)&&!player[layer].upgrades.includes(row*10+col)), can: (player[layer].points.gte(LAYER_UPGS[layer][row*10+col].cost)&&!player[layer].upgrades.includes(row*10+col)) }"
+						>{{ LAYER_UPGS[layer][row*10+col].desc }}<br>Cost: {{ formatWhole(LAYER_UPGS[layer][row*10+col].cost) }} {{LAYER_RES[layer]}}<span v-if="LAYER_UPGS[layer][row*10+col].currently"><br>Currently: {{LAYER_UPGS[layer][row*10+col].effDisp(LAYER_UPGS[layer][row*10+col].currently())}}</span></button></div>
+					</div>
+				</div>
+				<br><br>
+			</div>
+		</div>
+	</div>
+	<script>
+		// Mod Identifier, for ~~btpt~~ any userscripts. Consider adding this to your mod!
+		const modInfo = {
+			name: "DespATPT",
+			id: "dalt"
+		}
+	</script>
+</body>
+</html>
